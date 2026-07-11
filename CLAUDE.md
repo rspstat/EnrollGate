@@ -21,6 +21,8 @@ EnrollGate/
 
 **중요**: Gradle/빌드 명령은 반드시 `code/backend/`에서 실행. 루트에서 `./gradlew` 실행 시도하지 말 것. 프론트엔드 작업은 `code/frontend/`에서.
 
+**현재 상태**: `code/backend/`, `code/frontend/` 둘 다 비어 있음 (아직 프로젝트 스캐폴딩 전). 빌드/린트/테스트 명령은 아직 존재하지 않으므로, 이 파일에 임의로 지어내지 말 것 — Gradle 프로젝트가 생성되면 실제 명령(`./gradlew build`, `./gradlew test` 등)을 여기에 추가할 것.
+
 ## 기술 스택
 - 언어/프레임워크: Java + Spring Boot
 - DB: PostgreSQL
