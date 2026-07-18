@@ -97,6 +97,39 @@ public class Course {
         this.currentEnrolledCount--;
     }
 
+    /**
+     * 관리자용 부분 수정. null인 필드는 변경하지 않는다.
+     */
+    public void updateDetails(String name, String professorName, String department, Integer credit,
+                               LocalDateTime enrollmentStartAt, LocalDateTime enrollmentEndAt) {
+        if (name != null) {
+            this.name = name;
+        }
+        if (professorName != null) {
+            this.professorName = professorName;
+        }
+        if (department != null) {
+            this.department = department;
+        }
+        if (credit != null) {
+            this.credit = credit;
+        }
+        if (enrollmentStartAt != null) {
+            this.enrollmentStartAt = enrollmentStartAt;
+        }
+        if (enrollmentEndAt != null) {
+            this.enrollmentEndAt = enrollmentEndAt;
+        }
+    }
+
+    public void updateCapacity(int newCapacity) {
+        if (newCapacity < currentEnrolledCount) {
+            throw new IllegalArgumentException(
+                    "정원은 현재 신청 인원보다 작을 수 없습니다: current=" + currentEnrolledCount + ", requested=" + newCapacity);
+        }
+        this.capacity = newCapacity;
+    }
+
     @PrePersist
     private void onCreate() {
         LocalDateTime now = LocalDateTime.now();

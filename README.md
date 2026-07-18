@@ -62,11 +62,27 @@ graph TB
 
 ## 진행 상황
 
-- [ ] 1단계: 단일 서비스, 비관적 락 기반 정원 제어, 대기열 기본 구현
+- [x] 1단계: 단일 서비스, 비관적 락 기반 정원 제어, 대기열 기본 구현
 - [ ] 2단계: k6 부하테스트 → Redis 원자 연산 전환 → A/B 성능 비교, WebSocket 대기열
 - [ ] 3단계: User/Course/Enrollment/AI 서비스로 MSA 분리
 - [ ] 4단계: AI 봇 탐지 연동
 - [ ] 5단계: Docker + GitHub Actions + AWS 배포
+
+### 1단계 구현 현황
+
+- 회원가입/로그인(JWT), 과목 조회(학기/학과 필터), 관리자 과목 등록/수정
+- 수강신청 API — `courses.findByIdForUpdate`의 `SELECT ... FOR UPDATE`(비관적 락)로 정원 카운터 갱신을 직렬화
+- 정원 초과 시 즉시 실패 대신 **대기열 자동 진입**(202 QUEUED). 대기열은 아직 Redis Sorted Set이 아닌 `waiting_queue` 테이블 기반(DB 폴링 수준)이며, 만료 처리는 5초 주기 스케줄러(`QueueExpirySweeper`)가 담당
+- 신청 취소 시 대기열 맨 앞 순번을 같은 트랜잭션 안에서 즉시 승격(다음 순번에게 확정 창구 오픈)
+- 동시 신청 시 정원 초과 판매가 발생하지 않음을 증명하는 동시성 테스트 포함(`EnrollmentConcurrencyTest`)
+- WebSocket 대기열 알림, Redis 원자 연산 전환, k6 부하테스트는 2단계 과제로 남아 있음
+
+```
+cd code/backend
+docker-compose up -d        # PostgreSQL, Redis (로컬 실행용 — 테스트는 H2로 대체 실행됨)
+./gradlew bootRun
+./gradlew test              # 단위/동시성/API 테스트 전체 실행 (H2 인메모리 DB 사용)
+```
 
 ## 문서
 

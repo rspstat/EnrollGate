@@ -1,0 +1,30 @@
+spring:
+  application:
+    name: enrollgate
+
+  datasource:
+    url: jdbc:h2:mem:enrollgate;MODE=PostgreSQL;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+    hikari:
+      maximum-pool-size: 30
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    open-in-view: false
+
+  flyway:
+    enabled: false
+
+  jackson:
+    default-property-inclusion: non_null
+
+jwt:
+  secret: test-secret-key-for-jwt-signing-in-tests-only-do-not-use-in-prod
+  access-token-expiration-ms: 3600000
+
+queue:
+  confirm-window-seconds: 60
+  expiry-sweep-interval-ms: 5000

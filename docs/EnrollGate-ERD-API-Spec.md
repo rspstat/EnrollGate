@@ -82,10 +82,8 @@ erDiagram
 - 이 카운터가 프로젝트의 핵심 동시성 제어 지점
 
 ### 2.2 `enrollments` 유니크 제약
-- `(user_id, course_id)` 조합에 유니크 제약을 걸되, 취소 후 재신청을 허용할지 여부에 따라 제약 방식이 달라짐
-  - 재신청 허용 안 함 → `unique(user_id, course_id)` 단순 제약
-  - 재신청 허용 → `status`까지 포함한 부분 유니크 인덱스 필요 (PostgreSQL partial unique index)
-- **Open Question**: 재신청 허용 여부 확정 필요 (PRD Open Questions에도 있음)
+- `(user_id, course_id)` 조합에 **`unique(user_id, course_id)` 단순 제약으로 확정** — 취소 후 재신청은 허용하지 않는다.
+- 서비스 계층에서도 `status` 무관하게 동일 (user, course) 조합의 기존 행 존재 여부로 재신청을 막는다 (`EnrollmentRepository.existsByUserIdAndCourseId`). `status = ENROLLED`만 확인하면 취소 후 재신청 시도가 이 DB 제약에 막혀 500 에러로 새는 문제가 있어, 상태와 무관하게 막도록 구현했다.
 
 ### 2.3 `waiting_queue.status` 흐름
 ```
@@ -134,9 +132,12 @@ Base URL: `/api/v1`
       "courseCode": "CSE401",
       "name": "데이터베이스시스템",
       "professorName": "김OO",
+      "department": "컴퓨터공학과",
+      "credit": 3,
       "capacity": 40,
       "currentEnrolledCount": 40,
       "remainingSeats": 0,
+      "semester": "2026-2",
       "queueLength": 23
     }
   ]
@@ -168,9 +169,10 @@ Base URL: `/api/v1`
   "status": "QUEUED",
   "queuePosition": 24,
   "estimatedWaitSeconds": 180,
-  "websocketUrl": "/ws/queue/101"
+  "queueStatusUrl": "/api/v1/courses/101/queue/status"
 }
 ```
+> **1단계 구현 노트**: WebSocket이 아직 없어 `websocketUrl` 대신 폴링용 `queueStatusUrl`을 내려준다. `websocketUrl` 필드는 2단계에서 WebSocket 도입 시 추가된다.
 
 - **이미 신청됨 → 409 Conflict**
 ```json
@@ -204,12 +206,14 @@ Base URL: `/api/v1`
 
 ### 3.5 관리자
 
-| Method | Endpoint | 설명 | 인증 |
-|---|---|---|---|
-| POST | `/admin/courses` | 과목 등록 | Admin |
-| PATCH | `/admin/courses/{courseId}` | 정원/정보 수정 | Admin |
-| GET | `/admin/dashboard/stats` | 실시간 신청 현황 (TPS, 대기열 길이 등) | Admin |
-| GET | `/admin/bot-detection/logs` | 이상 탐지 로그 조회 | Admin |
+| Method | Endpoint | 설명 | 인증 | 상태 |
+|---|---|---|---|---|
+| POST | `/admin/courses` | 과목 등록 | Admin | 구현 완료 |
+| PATCH | `/admin/courses/{courseId}` | 정원/정보 수정 (부분 수정, null 필드는 유지) | Admin | 구현 완료 |
+| GET | `/admin/dashboard/stats` | 실시간 신청 현황 (TPS, 대기열 길이 등) | Admin | 미구현 (2단계: 부하테스트/메트릭 계측 이후) |
+| GET | `/admin/bot-detection/logs` | 이상 탐지 로그 조회 | Admin | 미구현 (4단계: AI 봇 탐지 연동 이후) |
+
+> 관리자 계정은 회원가입 API로 만들 수 없다 (`/auth/signup`은 항상 `STUDENT`로 생성). 1단계에서는 관리자 계정을 DB에 직접 시딩하는 것을 전제로 한다 — 계정 발급/승격 플로우는 아직 범위 밖이다.
 
 ### 3.6 공통 에러 응답 포맷
 ```json
@@ -232,7 +236,7 @@ Base URL: `/api/v1`
 
 ## 4. 다음 단계에서 확정할 것 (아키텍처 설계 단계로 이관)
 
-- [ ] 정원 카운터 동시성 제어 방식: 비관적 락 vs Redis 원자 연산 vs 분산 락(Redisson 등)
-- [ ] WebSocket 멀티 인스턴스 환경에서의 이벤트 동기화 방식 (Redis Pub/Sub)
-- [ ] 재신청 허용 여부에 따른 `enrollments` 유니크 제약 최종 확정
-- [ ] 확정 대기 시간(60초) 내 미확정 시 다음 순번 이전 로직의 트리거 방식 (스케줄러 vs 이벤트 기반)
+- [x] 정원 카운터 동시성 제어 방식: **1단계는 비관적 락으로 확정** (`CourseRepository.findByIdForUpdate`). Redis 원자 연산/분산 락은 2단계에서 A/B 비교
+- [ ] WebSocket 멀티 인스턴스 환경에서의 이벤트 동기화 방식 (Redis Pub/Sub) — 2단계, WebSocket 도입 시 결정
+- [x] 재신청 허용 여부에 따른 `enrollments` 유니크 제약 최종 확정: **재신청 미허용**으로 확정, `unique(user_id, course_id)` 적용
+- [x] 확정 대기 시간(60초) 내 미확정 시 다음 순번 이전 로직의 트리거 방식: **스케줄러로 확정** (`QueueExpirySweeper`, 5초 주기)

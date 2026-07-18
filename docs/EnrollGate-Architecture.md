@@ -118,3 +118,9 @@ graph TB
 - [ ] API Gateway 자체 구현 vs 기성 솔루션(Spring Cloud Gateway) 사용 여부
 - [ ] Kafka vs Redis Streams — MVP 단계 리소스/러닝커브 고려하여 최종 확정 필요
 - [ ] 서비스별 DB를 처음부터 물리적으로 분리할지, 3단계 전까지는 스키마만 논리적으로 분리할지
+- [x] 확정 대기 시간 내 미확정 시 다음 순번 이전 로직의 트리거 방식: **스케줄러로 확정** — `QueueExpirySweeper`가 5초 주기로 만료된 `NOTIFIED` 항목을 스캔해 다음 순번을 승격한다 (1단계, DB 폴링 수준). 이벤트 기반 전환은 Redis 도입 시(2단계) 재검토
+
+### 1단계 구현 메모
+
+- 정원 카운터(`currentEnrolledCount`)는 "확정 신청 + 확정 대기 중(NOTIFIED) 예약"의 합으로 취급한다. 즉 좌석이 비어도 대기자가 있으면 카운트를 그대로 유지한 채 다음 사람에게 승격만 하고, 대기자가 없을 때만 실제로 감소시킨다. 이렇게 하면 신규 신청(`enroll`)과 좌석 반납(`cancel`/만료)이 모두 같은 course row 비관적 락 한 곳으로 직렬화된다.
+- Java 툴체인은 로컬 개발 환경에 설치된 JDK가 21뿐이라 `build.gradle`의 `languageVersion`을 17 → 21로 조정했다 (Spring Boot 3.5 기준 호환).

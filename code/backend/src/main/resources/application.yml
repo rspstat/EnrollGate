@@ -23,6 +23,15 @@ spring:
       host: localhost
       port: 6379
 
+  jackson:
+    default-property-inclusion: non_null
+
 jwt:
   secret: ${JWT_SECRET:local-dev-secret-change-me-local-dev-secret-change-me}
   access-token-expiration-ms: 3600000
+
+queue:
+  # 순번 도달 후 확정까지 대기하는 시간(초). 미확정 시 다음 순번에게 이전한다.
+  confirm-window-seconds: 60
+  # 만료된 NOTIFIED 항목을 스캔해 다음 순번으로 넘기는 스케줄러 주기(ms)
+  expiry-sweep-interval-ms: 5000

@@ -2,6 +2,7 @@ package com.enrollgate.course.repository;
 
 import com.enrollgate.course.domain.Course;
 import jakarta.persistence.LockModeType;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
@@ -17,4 +18,10 @@ public interface CourseRepository extends JpaRepository<Course, Long> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select c from Course c where c.id = :id")
     Optional<Course> findByIdForUpdate(@Param("id") Long id);
+
+    List<Course> findBySemesterAndDepartment(String semester, String department);
+
+    List<Course> findBySemester(String semester);
+
+    List<Course> findByDepartment(String department);
 }
