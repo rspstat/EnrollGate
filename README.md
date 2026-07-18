@@ -90,3 +90,4 @@ docker-compose up -d        # PostgreSQL, Redis (로컬 실행용 — 테스트�
 - [ERD & API 명세](docs/EnrollGate-ERD-API-Spec.md)
 - [아키텍처 설계](docs/EnrollGate-Architecture.md) — 서비스 분리 기준, 동시성 제어 전략 비교
 - [저장소 구조 & 브랜치 전략](docs/EnrollGate-Repo-Strategy.md)
+- [개발 계획 (1~5단계 로드맵)](docs/EnrollGate-Roadmap.md) — 단계별 실행 계획, 환경 제약과 대응 방안
