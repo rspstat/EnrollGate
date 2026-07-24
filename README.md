@@ -132,7 +132,8 @@ Redis 왕복이라는 추가 네트워크 홉 자체가 순수 비용이 되어 
 - **Dockerfile** (`code/backend/app/Dockerfile`) — 멀티 스테이지 빌드: `eclipse-temurin:21-jdk-jammy`에서 `:app:bootJar`를 빌드하고, 최종 이미지는 `eclipse-temurin:21-jre-jammy`(JDK 아닌 JRE)에 jar 파일만 복사해 이미지 크기를 줄인다
 - **docker-compose 앱 서비스 추가** — 기존 `postgres`/`redis`에 healthcheck를 추가하고, `app`이 `depends_on: condition: service_healthy`로 두 인프라가 준비된 뒤에만 시작하도록 구성. 4단계의 선택적 강화 스코어러인 `ai-model`(Python FastAPI) 서비스도 함께 추가했으나 필수는 아님(꺼져 있으면 자동 휴리스틱 폴백)
 - **GitHub Actions** (`.github/workflows/ci.yml`, 저장소 루트) — `build-and-test` 잡이 JDK 21로 `./gradlew test`를 실행(H2 인메모리 DB라 외부 인프라 불필요), 이어서 `docker-build` 잡이 앱/ai-model 두 이미지를 실제로 빌드해본다. **주의**: `.github/workflows/`는 반드시 저장소 루트에 있어야 GitHub Actions가 인식하므로 `code/backend`가 아닌 루트에 위치시켰다
-- **AWS 배포는 범위 밖으로 확정** — 졸업 전 학습/포트폴리오 목적 프로젝트라 Dockerfile/CI 작성까지가 5단계의 실질적 완료 기준. 로컬에는 Docker가 설치되어 있지 않아(WSL2/Docker 미설치 결정 유지) `docker build` 자체의 로컬 검증은 불가능하며, 실제 이미지 빌드 성공 여부는 GitHub Actions push 이후에만 확인 가능(사용자 확인 후 진행 예정)
+- **AWS 배포는 범위 밖으로 확정** — 졸업 전 학습/포트폴리오 목적 프로젝트라 Dockerfile/CI 작성까지가 5단계의 실질적 완료 기준. 로컬에는 Docker가 설치되어 있지 않아(WSL2/Docker 미설치 결정 유지) `docker build` 자체의 로컬 검증은 불가능했지만, **실제 GitHub Actions push로 검증 완료** — `build-and-test`(137개 테스트) + `docker-build`(app/ai-model 이미지) 두 잡 모두 success
+- **버그 발견 및 수정 (3) — CI 전용 테스트 실패**: 로컬은 항상 Redis가 떠 있어 몰랐지만, Redis가 없는 GitHub Actions 러너에서 `EnrollEventPublisherTest` 4개가 `RedisConnectionFailureException`으로 실패했다. `@BeforeEach`의 `assumeTrue`가 Redis 연결 실패 시 테스트를 스킵시키지만, **JUnit5는 `@BeforeEach` assumption이 실패해도 `@AfterEach`는 여전히 실행한다**는 점 때문에 `tearDown()`이 무조건 Redis를 호출하다 스킵됐어야 할 테스트가 실패로 둔갑했다. `redisReachable` 플래그로 `tearDown()`도 가드해 해결 — 로컬 Redis를 일부러 내려 재현 후 재검증 완료
 
 ```
 cd code/backend
@@ -156,6 +157,28 @@ docker-compose up -d        # PostgreSQL, Redis (로컬 실행용 — 테스트�
 winget install GrafanaLabs.k6
 ```
 `docker-compose.yml`의 `POSTGRES_USER=enrollgate / POSTGRES_PASSWORD=enrollgate / POSTGRES_DB=enrollgate`와 동일한 계정으로 맞추면 `application.yml` 수정 없이 그대로 붙는다.
+
+## 수동 테스트용 프론트엔드 (`code/frontend`)
+
+이 프로젝트는 **백엔드 API 전용**이며(README 상단 참고), `code/frontend`는 포트폴리오 산출물이 아니라 브라우저에서 직접 눈으로 확인하며 API를 수동 테스트하기 위한 순수 HTML/CSS/JS 페이지다. 빌드 도구나 프레임워크 없이 정적 파일 그대로 동작한다.
+
+```
+# 1) 백엔드 (별도 터미널)
+cd code/backend
+./gradlew :app:bootRun
+
+# 2) 프론트엔드 정적 서버 (별도 터미널) — file://로 직접 열면 CORS Origin이 "null"이 되어 막히므로 반드시 서버로 서빙
+cd code/frontend
+python -m http.server 5500
+```
+
+브라우저에서 `http://localhost:5500` 접속. 회원가입/로그인/과목 목록/수강신청/대기열/내 신청내역까지 바로 되고, 관리자 기능(과목 등록, 봇 탐지 로그)은 회원가입만으로는 권한이 없어 DB에서 직접 승격이 필요하다:
+
+```
+psql -U enrollgate -h localhost -d enrollgate -c "UPDATE users SET role='ADMIN' WHERE email='본인이메일';"
+```
+
+백엔드의 `SecurityConfig`에 `http://localhost:*`/`http://127.0.0.1:*` 출처를 허용하는 CORS 설정을 추가해 이 프론트엔드가 다른 포트에서도 API를 호출할 수 있게 했다 (Authorization 헤더로만 인증하므로 `allowCredentials`는 false).
 
 ## 문서
 

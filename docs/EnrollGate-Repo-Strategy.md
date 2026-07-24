@@ -61,8 +61,10 @@ enrollgate/                           # 저장소 루트
 ├── .github/
 │   └── workflows/ci.yml             # 빌드 + 테스트 자동화(GitHub Actions는 저장소 루트의 .github만 인식하므로
 │                                       code/backend가 아닌 여기 위치 — 5단계 구현 완료). CD(실배포)는 범위 밖
-└── code/backend/, code/ai-model/, docs/, README.md
+└── code/backend/, code/ai-model/, code/frontend/, docs/, README.md
 ```
+
+**`code/frontend/`**: 5단계 완료 이후 추가된 수동 테스트용 정적 페이지(순수 HTML/CSS/JS, 빌드 도구 없음). 이 프로젝트의 포트폴리오 산출물은 어디까지나 백엔드이며, 이 폴더는 브라우저로 API를 눈으로 확인하기 위한 보조 도구일 뿐 로드맵 단계에는 포함되지 않는다. 자세한 실행 방법은 README "수동 테스트용 프론트엔드" 절 참고.
 
 **핵심 포인트**:
 - `enrollment-service`의 `build.gradle`은 `course-service`에 의존하지 않는다 — Course 정원 데이터/카운터는 `common.contract.CourseCapacityPort`(enrollment→course 방향)로만 주고받고, 대기열 길이는 `common.contract.QueueLengthPort`(course→enrollment 방향)로만 주고받는다. 두 포트 모두 `common`에 정의되어 있어 어느 쪽도 서로를 직접 참조하지 않는다.

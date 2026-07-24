@@ -1,2 +1,4 @@
 CLAUDE.md
 dump.rdb
+__pycache__/
+*.pyc

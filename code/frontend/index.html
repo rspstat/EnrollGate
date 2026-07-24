@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EnrollGate</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header>
+  <h1>EnrollGate</h1>
+  <div id="user-info" hidden>
+    <span id="user-label"></span>
+    <button id="logout-btn">로그아웃</button>
+  </div>
+</header>
+
+<section id="auth-section">
+  <div class="card">
+    <h2>회원가입</h2>
+    <form id="signup-form">
+      <input type="email" name="email" placeholder="이메일" required>
+      <input type="password" name="password" placeholder="비밀번호 (8자 이상)" required minlength="8">
+      <input type="text" name="name" placeholder="이름" required>
+      <input type="text" name="studentNumber" placeholder="학번" required>
+      <button type="submit">가입</button>
+    </form>
+  </div>
+  <div class="card">
+    <h2>로그인</h2>
+    <form id="login-form">
+      <input type="email" name="email" placeholder="이메일" required>
+      <input type="password" name="password" placeholder="비밀번호" required>
+      <button type="submit">로그인</button>
+    </form>
+    <p class="hint">관리자 권한은 회원가입만으로는 부여되지 않습니다. DB에서 <code>users.role</code>을 <code>ADMIN</code>으로 직접 바꾼 뒤 다시 로그인하세요.</p>
+  </div>
+</section>
+
+<section id="app-section" hidden>
+  <nav id="tabs">
+    <button class="tab-btn active" data-tab="courses-view">과목 목록</button>
+    <button class="tab-btn" data-tab="my-enrollments-view">내 신청내역</button>
+    <button class="tab-btn admin-only" data-tab="admin-view" hidden>관리자</button>
+  </nav>
+
+  <div id="courses-view" class="tab-panel">
+    <div class="toolbar">
+      <button id="refresh-courses">새로고침</button>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>과목코드</th><th>이름</th><th>교수</th><th>학기</th>
+          <th>정원</th><th>신청인원</th><th>잔여</th><th>대기인원</th><th></th>
+        </tr>
+      </thead>
+      <tbody id="courses-body"></tbody>
+    </table>
+  </div>
+
+  <div id="my-enrollments-view" class="tab-panel" hidden>
+    <div class="toolbar">
+      <button id="refresh-enrollments">새로고침</button>
+    </div>
+    <table>
+      <thead>
+        <tr><th>과목코드</th><th>이름</th><th>상태</th><th>신청일시</th><th></th></tr>
+      </thead>
+      <tbody id="enrollments-body"></tbody>
+    </table>
+  </div>
+
+  <div id="admin-view" class="tab-panel" hidden>
+    <div class="card">
+      <h2>과목 등록</h2>
+      <form id="create-course-form">
+        <input type="text" name="courseCode" placeholder="과목코드 (예: CS101)" required>
+        <input type="text" name="name" placeholder="과목명" required>
+        <input type="text" name="professorName" placeholder="교수명" required>
+        <input type="text" name="department" placeholder="학과" required>
+        <input type="number" name="credit" placeholder="학점" min="1" required>
+        <input type="number" name="capacity" placeholder="정원" min="1" required>
+        <input type="text" name="semester" placeholder="학기 (예: 2026-1)" required>
+        <label>신청 시작<input type="datetime-local" name="enrollmentStartAt" required></label>
+        <label>신청 종료<input type="datetime-local" name="enrollmentEndAt" required></label>
+        <button type="submit">등록</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2>봇 탐지 로그 <button id="refresh-bot-logs">새로고침</button></h2>
+      <table>
+        <thead>
+          <tr><th>사용자</th><th>과목</th><th>특징</th><th>점수</th><th>처리</th><th>시각</th></tr>
+        </thead>
+        <tbody id="bot-logs-body"></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<div id="toast" hidden></div>
+
+<script src="app.js"></script>
+</body>
+</html>
