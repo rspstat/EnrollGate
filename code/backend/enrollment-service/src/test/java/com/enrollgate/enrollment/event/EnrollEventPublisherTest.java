@@ -29,6 +29,7 @@ class EnrollEventPublisherTest {
     private EnrollEventPublisher publisher;
     private Long userId;
     private Long courseId;
+    private boolean redisReachable;
 
     @BeforeEach
     void setUp() {
@@ -37,14 +38,13 @@ class EnrollEventPublisherTest {
         redisTemplate = new StringRedisTemplate(connectionFactory);
         redisTemplate.afterPropertiesSet();
 
-        boolean reachable;
         try {
-            reachable = "PONG".equalsIgnoreCase(redisTemplate.execute(
+            redisReachable = "PONG".equalsIgnoreCase(redisTemplate.execute(
                     (org.springframework.data.redis.core.RedisCallback<String>) connection -> connection.ping()));
         } catch (Exception ex) {
-            reachable = false;
+            redisReachable = false;
         }
-        assumeTrue(reachable, "로컬 Redis(localhost:6379)에 연결할 수 없어 이 테스트를 건너뜁니다");
+        assumeTrue(redisReachable, "로컬 Redis(localhost:6379)에 연결할 수 없어 이 테스트를 건너뜁니다");
 
         publisher = new EnrollEventPublisher(redisTemplate);
         userId = USER_ID_SEQUENCE.incrementAndGet();
@@ -53,7 +53,10 @@ class EnrollEventPublisherTest {
 
     @AfterEach
     void tearDown() {
-        if (redisTemplate != null) {
+        // setUp()의 assumeTrue가 실패해 테스트 자체가 스킵된 경우에도 JUnit5는 이 메서드를 여전히 호출한다.
+        // 이때 redisTemplate은 non-null이지만 실제 Redis가 없으므로, redisReachable로 한 번 더 막지 않으면
+        // "스킵된 테스트"가 tearDown의 Redis 호출 때문에 실패로 둔갑한다 (CI에서 실제로 겪은 문제).
+        if (redisReachable && redisTemplate != null) {
             redisTemplate.delete("enrollgate:bot-detect:last-request:" + userId);
             redisTemplate.delete("enrollgate:bot-detect:req-count:" + userId + ":" + courseId);
         }

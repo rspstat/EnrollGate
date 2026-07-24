@@ -135,7 +135,11 @@ Docker/WSL2 없이 아래 세 가지로 로컬 개발 환경을 구성했다. �
 
 ### 검증
 - 로컬 `./gradlew test`로 코드 변경 없음(Dockerfile/compose/CI yaml만 추가)을 확인 — 137개 테스트 전부 통과 유지
-- Docker/`docker build` 자체를 로컬에서 실행할 수 없어(Docker 미설치), Dockerfile 문법과 `docker-compose.yml` 구조는 직접 검토로 확인. **실제 이미지 빌드 성공 여부는 GitHub Actions push 이후에만 확인 가능** — 다음 세션 또는 사용자 승인 시 push해서 확인 필요
+- Docker/`docker build` 자체를 로컬에서 실행할 수 없어(Docker 미설치), Dockerfile 문법과 `docker-compose.yml` 구조는 직접 검토로 확인
+- **실제 GitHub Actions에서 실행해 CI를 검증함** — push 후 `build-and-test` 잡이 실패했고, 로그를 받아 원인을 찾아 수정한 뒤 로컬에서 재현·검증까지 완료 (아래 "실제로 겪은 문제와 해결" 참고)
+
+### 실제로 겪은 문제와 해결
+- **CI 전용 테스트 실패 (`EnrollEventPublisherTest`)**: 로컬에서는 항상 Redis가 떠 있어 몰랐지만, Redis가 없는 GitHub Actions 러너에서 처음 돌려보니 `EnrollEventPublisherTest`의 4개 테스트가 전부 `RedisConnectionFailureException`으로 실패했다. 원인은 `assumeTrue(reachable, ...)`가 `@BeforeEach`에서 Redis 연결 실패 시 테스트를 스킵시키긴 하지만, **JUnit5는 `@BeforeEach`의 assumption이 실패해도 `@AfterEach`(`tearDown()`)는 여전히 실행한다**는 점을 놓쳤다는 것 — `tearDown()`이 `redisTemplate != null`만 확인하고 무조건 `redisTemplate.delete(...)`를 호출하다 보니, "스킵됐어야 할 테스트"가 tearDown의 Redis 호출 때문에 실패로 둔갑했다. `redisReachable` 플래그를 필드로 저장해 `tearDown()`도 같은 조건으로 가드하도록 수정 — 로컬 Redis를 일부러 내려서 재현 후 수정, 재기동해서 재검증 완료. 같은 패턴을 쓰는 `RedisSeatGateIntegrationTest`는 `tearDown()`이 `courseId != null`(assumeTrue 통과 후에만 할당됨)로 우연히 이미 안전했다
 
 ### 환경 제약 및 대응
 - Docker 미설치 → 로컬 빌드/실행 검증 대신 GitHub Actions CI에서 빌드 검증 (러너에 Docker 기본 내장)
