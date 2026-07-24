@@ -1,0 +1,12 @@
+dependencies {
+	// course-service에는 의존하지 않는다 — Course 데이터/카운터는 common의 CourseCapacityPort/QueueLengthPort로만
+	// 주고받는다 (3단계 MSA 분리 경계).
+	implementation project(':common')
+
+	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+	implementation 'org.springframework.boot:spring-boot-starter-web'
+	implementation 'org.springframework.boot:spring-boot-starter-websocket'
+	implementation 'org.springframework.boot:spring-boot-starter-validation'
+	// 4단계: 신청 이벤트를 Redis Streams로 AI Service에 비동기 전달하기 위함(정원 동시성 제어와는 무관한 별개 용도)
+	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+}

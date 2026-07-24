@@ -9,11 +9,47 @@ services:
       - "5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U enrollgate"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   redis:
     image: redis:7
     ports:
       - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # 봇 탐지 강화 스코어러(선택) — ai.scorer=isolation-forest일 때만 실제로 호출된다.
+  # 꺼져 있어도 ai-service는 자동으로 휴리스틱 스코어러로 폴백하므로 필수 서비스는 아니다.
+  ai-model:
+    build:
+      context: ../ai-model
+    ports:
+      - "8000:8000"
+
+  app:
+    build:
+      context: .
+      dockerfile: app/Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/enrollgate
+      SPRING_DATASOURCE_USERNAME: enrollgate
+      SPRING_DATASOURCE_PASSWORD: enrollgate
+      SPRING_DATA_REDIS_HOST: redis
+      AI_SCORING_SERVICE_URL: http://ai-model:8000/score
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
 volumes:
   postgres-data:

@@ -1,1 +1,8 @@
 rootProject.name = 'enrollgate'
+
+include 'common'
+include 'user-service'
+include 'course-service'
+include 'enrollment-service'
+include 'ai-service'
+include 'app'

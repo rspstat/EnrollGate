@@ -1,0 +1,48 @@
+spring:
+  application:
+    name: enrollgate
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/enrollgate
+    username: enrollgate
+    password: enrollgate
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+
+  flyway:
+    locations: classpath:db/migration
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+  jackson:
+    default-property-inclusion: non_null
+
+jwt:
+  secret: ${JWT_SECRET:local-dev-secret-change-me-local-dev-secret-change-me}
+  access-token-expiration-ms: 3600000
+
+queue:
+  # 순번 도달 후 확정까지 대기하는 시간(초). 미확정 시 다음 순번에게 이전한다.
+  confirm-window-seconds: 60
+  # 만료된 NOTIFIED 항목을 스캔해 다음 순번으로 넘기는 스케줄러 주기(ms)
+  expiry-sweep-interval-ms: 5000
+
+enrollment:
+  # 정원 카운터 동시성 제어 방식: pessimistic-lock(기본, 1단계) | redis-atomic(2단계, k6 A/B 비교용)
+  concurrency-strategy: ${ENROLLMENT_CONCURRENCY_STRATEGY:pessimistic-lock}
+
+ai:
+  # 봇 탐지 스코어링 방식: heuristic(기본, 외부 의존성 없음) | isolation-forest(Python 스코어링 서비스 호출)
+  scorer: ${AI_SCORER:heuristic}
+  scoring-service-url: ${AI_SCORING_SERVICE_URL:http://localhost:8000/score}
+  # 신청 이벤트 스트림을 읽어 점수를 매기는 스케줄러 주기(ms)
+  event-poll-interval-ms: 5000

@@ -4,70 +4,70 @@
 
 ---
 
-## 1. 모노레포 vs 멀티레포 — 모노레포로 시작
+## 1. 모노레포 vs 멀티레포 — 모노레포 유지로 확정 (2026-07-24)
 
-**결정**: 처음엔 **단일 저장소(모노레포)**로 시작하고, 3단계(MSA 분리) 진입 시점에 멀티레포 전환 여부를 다시 판단합니다.
+**결정**: 3단계(MSA 분리)에 진입했지만 **모노레포를 그대로 유지**하고, 서비스 경계는 **Gradle 멀티모듈**로 강제한다. 완전히 별도 저장소/별도 배포 단위로 쪼개는 "물리적 분리"는 하지 않기로 확정했다 (졸업 전 학습/포트폴리오 프로젝트 규모에 맞춰 범위를 좁힌 결정, `docs/EnrollGate-Roadmap.md` 참고).
 
 **이유**
-- 아키텍처 문서에서 정한 로드맵상 1~2단계는 모놀리식으로 개발합니다. 처음부터 서비스별 저장소를 나누면 코드를 왔다갔다 옮기는 데 불필요한 시간이 듭니다.
-- 최근 백엔드 트렌드에서도 "처음부터 MSA로 쪼개기보다, 모놀리식 안에서 도메인 경계를 명확히 나눠두고 필요할 때 분리하는" 방식(Spring Modulith 같은 접근)이 주목받고 있습니다. 아래 폴더 구조를 도메인 패키지 단위로 미리 나눠두면 이 흐름을 그대로 따라가는 셈이 됩니다.
-- 3단계에서 실제로 서비스를 분리할 때, "도메인 패키지 → 독립 서비스"로 추출하는 과정 자체를 README/발표자료에 "왜 이 시점에 분리했는지" 스토리로 담을 수 있습니다.
+- 1~2단계는 계획대로 모놀리식으로 개발했다.
+- 3단계에서 "패키지 단위 분리 → Gradle 서브프로젝트 분리"로 전환했다: 각 모듈이 독립된 `build.gradle`/컴파일 단위를 가지므로, 서비스 경계를 넘는 참조는 **컴파일 에러로 즉시 드러난다** — 코드 리뷰나 컨벤션이 아니라 빌드 자체가 경계를 강제한다.
+- 순수하게 물리적으로 완전히 분리하면(별도 저장소, 별도 실행 프로세스, 실제 네트워크 통신) 이번 범위에서 얻는 이득 대비 작업량이 너무 커서, "논리적 분리"(한 프로세스로 실행되지만 모듈 경계는 진짜로 강제됨) 수준에서 멈추기로 했다.
 
 ---
 
-## 2. 폴더 구조 (모놀리식 단계)
+## 2. 폴더 구조 (3단계: Gradle 멀티모듈)
 
 ```
-enrollgate/
+enrollgate/code/backend/
+├── settings.gradle                  # 6개 서브프로젝트 include
+├── build.gradle                     # 공통 설정(툴체인, Lombok, BOM import 등)을 subprojects{} 블록으로 전파
+│
+├── common/                          # 공통: JWT, 예외 처리, Security 설정, 서비스 간 포트 인터페이스
+│   └── src/main/java/com/enrollgate/common/
+│       ├── config/                  # WebSocket 관련 설정 등 (도메인 특정 config는 각 서비스 모듈에 위치)
+│       ├── contract/                 # CourseCapacityPort, QueueLengthPort — 서비스 간 순환 의존 방지용 포트
+│       ├── exception/
+│       └── security/
+│
+├── user-service/                    # User 도메인 (회원가입/로그인/JWT 발급)
+│   └── src/main/java/com/enrollgate/user/
+│       ├── controller/ service/ repository/ domain/
+│
+├── course-service/                  # Course 도메인 + CourseCapacityPort의 실제 구현(어댑터 2종)
+│   └── src/main/java/com/enrollgate/course/
+│       ├── controller/ service/ repository/ domain/
+│       └── service/PessimisticLockCourseCapacityAdapter.java, RedisAtomicCourseCapacityAdapter.java, RedisSeatGate.java
+│
+├── enrollment-service/              # Enrollment 도메인(핵심) — Course 엔티티/리포지토리를 전혀 참조하지 않음
+│   └── src/main/java/com/enrollgate/enrollment/
+│       ├── controller/ service/ repository/ domain/
+│       ├── queue/                   # 대기열 로직 (DB 폴링 + WebSocket)
+│       └── queue/websocket/         # QueueSessionRegistry, QueueNotificationService, QueueWebSocketConfig
+│
+├── ai-service/                      # 4단계 스캐폴드 (아직 로직 없음)
+│
+├── app/                             # 실행 가능한 조립 지점 — 위 5개 모듈을 전부 implementation으로 모아 부팅
+│   └── src/main/java/com/enrollgate/
+│       ├── EnrollgateApplication.java
+│       └── resources/ application.yml, db/migration/  (Flyway 마이그레이션은 app이 소유)
+│   └── src/test/java/com/enrollgate/api/              # 여러 도메인을 가로지르는 통합 테스트(MockMvc, WebSocket, 동시성)는 app에 위치
+│
+├── k6/                               # 부하테스트 스크립트 (Gradle 모듈 아님)
+├── app/Dockerfile                    # 멀티 스테이지 빌드(gradle → JRE 21 슬림 런타임), 5단계 구현 완료
+├── docker-compose.yml                # 로컬 개발용 (PostgreSQL, Redis, ai-model, app 전부 포함, 5단계 구현 완료)
+├── gradlew, gradlew.bat, gradle/
+
+enrollgate/                           # 저장소 루트
 ├── .github/
-│   ├── workflows/
-│   │   └── ci.yml                  # 빌드 + 테스트 자동화 (CD는 5단계에서 추가)
-│   ├── ISSUE_TEMPLATE/
-│   │   ├── feature.md
-│   │   └── bug.md
-│   └── PULL_REQUEST_TEMPLATE.md
-│
-├── src/
-│   ├── main/
-│   │   ├── java/com/enrollgate/
-│   │   │   ├── user/                # 추후 User Service로 분리될 도메인
-│   │   │   │   ├── controller/
-│   │   │   │   ├── service/
-│   │   │   │   ├── repository/
-│   │   │   │   └── domain/
-│   │   │   ├── course/              # 추후 Course Service
-│   │   │   │   └── ...
-│   │   │   ├── enrollment/          # 추후 Enrollment Service (핵심 도메인)
-│   │   │   │   ├── controller/
-│   │   │   │   ├── service/
-│   │   │   │   ├── repository/
-│   │   │   │   ├── domain/
-│   │   │   │   └── queue/           # 대기열 로직 (WebSocket, Redis 연동)
-│   │   │   ├── ai/                  # 추후 AI Service (봇 탐지)
-│   │   │   │   └── ...
-│   │   │   └── common/              # 공통: JWT, 예외 처리, 설정
-│   │   │       ├── config/
-│   │   │       ├── exception/
-│   │   │       └── security/
-│   │   └── resources/
-│   │       ├── application.yml
-│   │       └── db/migration/        # Flyway 스키마 마이그레이션 스크립트
-│   └── test/
-│       └── java/com/enrollgate/     # 도메인별 테스트 (구조는 main과 동일하게 미러링)
-│
-├── docs/                            # PRD, ERD, 아키텍처 문서 (Notion 원본과 동기화)
-│   ├── PRD.md
-│   ├── ERD-API-Spec.md
-│   └── Architecture.md
-│
-├── docker-compose.yml                # 로컬 개발용 (PostgreSQL, Redis)
-├── Dockerfile
-├── build.gradle
-├── settings.gradle
-└── README.md
+│   └── workflows/ci.yml             # 빌드 + 테스트 자동화(GitHub Actions는 저장소 루트의 .github만 인식하므로
+│                                       code/backend가 아닌 여기 위치 — 5단계 구현 완료). CD(실배포)는 범위 밖
+└── code/backend/, code/ai-model/, docs/, README.md
 ```
 
-**핵심 포인트**: `user`, `course`, `enrollment`, `ai`를 처음부터 **패키지 단위로 명확히 분리**해뒀기 때문에, 3단계에서 서비스를 쪼갤 때 패키지를 통째로 새 저장소로 옮기는 형태가 됩니다. 이게 "도메인 경계를 처음부터 설계에 반영했다"는 근거가 됩니다.
+**핵심 포인트**:
+- `enrollment-service`의 `build.gradle`은 `course-service`에 의존하지 않는다 — Course 정원 데이터/카운터는 `common.contract.CourseCapacityPort`(enrollment→course 방향)로만 주고받고, 대기열 길이는 `common.contract.QueueLengthPort`(course→enrollment 방향)로만 주고받는다. 두 포트 모두 `common`에 정의되어 있어 어느 쪽도 서로를 직접 참조하지 않는다.
+- `@SpringBootTest`로 전체 컨텍스트가 필요한 테스트(`EnrollmentConcurrencyTest`, `*ApiTest`, `QueueWebSocketFlowTest`)는 `EnrollgateApplication`을 가진 `app` 모듈에만 둘 수 있다 — 다른 모듈에는 부트스트랩할 설정 클래스가 없기 때문. 순수 Mockito 단위 테스트는 각자의 모듈에 남는다.
+- 이 구조 자체가 "3단계에서 실제로 물리적 서비스로 분리한다면 어떤 모듈을 어떤 순서로 꺼내면 되는지"를 보여주는 근거가 된다 — `user-service`/`course-service`/`enrollment-service`를 각각 별도 Spring Boot 앱으로 만들고 포트 인터페이스를 REST 호출로 바꾸면 된다.
 
 ---
 

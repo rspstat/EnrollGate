@@ -1,0 +1,13 @@
+apply plugin: 'java-library'
+
+dependencies {
+	// api: common을 쓰는 모든 모듈이 보안/JWT 관련 클래스(@AuthenticationPrincipal, jjwt 등)를
+	// 직접 컴파일 타임에 쓸 수 있어야 하므로 implementation이 아닌 api로 노출한다.
+	api 'org.springframework.boot:spring-boot-starter-web'
+	api 'org.springframework.boot:spring-boot-starter-security'
+	api 'org.springframework.boot:spring-boot-starter-validation'
+
+	api 'io.jsonwebtoken:jjwt-api:0.12.6'
+	runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'
+	runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.6'
+}

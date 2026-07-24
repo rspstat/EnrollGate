@@ -1,0 +1,26 @@
+plugins {
+	id 'org.springframework.boot'
+}
+
+dependencies {
+	implementation project(':common')
+	implementation project(':user-service')
+	implementation project(':course-service')
+	implementation project(':enrollment-service')
+	implementation project(':ai-service')
+
+	implementation 'org.flywaydb:flyway-core'
+	implementation 'org.flywaydb:flyway-database-postgresql'
+	runtimeOnly 'org.postgresql:postgresql'
+
+	testImplementation 'org.springframework.security:spring-security-test'
+	// 아래 두 줄: 각 서비스 모듈의 implementation 스코프 의존성은 app으로 전이되지 않으므로,
+	// app의 통합 테스트가 UserRepository(JPA)/실제 WebSocket 클라이언트를 직접 쓰기 위해 테스트 전용으로 선언
+	testImplementation 'org.springframework.boot:spring-boot-starter-websocket'
+	testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+	testRuntimeOnly 'com.h2database:h2'
+}
+
+tasks.named('bootRun') {
+	jvmArgs = ['-Dfile.encoding=UTF-8', '-Dsun.jnu.encoding=UTF-8']
+}

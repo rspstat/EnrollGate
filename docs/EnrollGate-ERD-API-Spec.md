@@ -211,7 +211,7 @@ Base URL: `/api/v1`
 | POST | `/admin/courses` | 과목 등록 | Admin | 구현 완료 |
 | PATCH | `/admin/courses/{courseId}` | 정원/정보 수정 (부분 수정, null 필드는 유지) | Admin | 구현 완료 |
 | GET | `/admin/dashboard/stats` | 실시간 신청 현황 (TPS, 대기열 길이 등) | Admin | 미구현 (2단계: 부하테스트/메트릭 계측 이후) |
-| GET | `/admin/bot-detection/logs` | 이상 탐지 로그 조회 | Admin | 미구현 (4단계: AI 봇 탐지 연동 이후) |
+| GET | `/admin/bot-detection/logs` | 이상 탐지 로그 조회 (최신 50건) | Admin | 구현 완료 (4단계) |
 
 > 관리자 계정은 회원가입 API로 만들 수 없다 (`/auth/signup`은 항상 `STUDENT`로 생성). 1단계에서는 관리자 계정을 DB에 직접 시딩하는 것을 전제로 한다 — 계정 발급/승격 플로우는 아직 범위 밖이다.
 
