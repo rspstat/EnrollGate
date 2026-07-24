@@ -130,13 +130,13 @@ Docker/WSL2 없이 아래 세 가지로 로컬 개발 환경을 구성했다. �
 1. [x] 백엔드 앱 자체 Dockerfile 작성(`code/backend/app/Dockerfile`) — 멀티 스테이지 빌드(`eclipse-temurin:21-jdk-jammy`로 `:app:bootJar` 빌드 → `eclipse-temurin:21-jre-jammy` 런타임에 jar만 복사, 이미지 크기 최소화)
 2. [x] docker-compose에 앱 서비스 추가 — `postgres`/`redis`에 healthcheck를 붙이고 `app`이 `depends_on: condition: service_healthy`로 기다리도록 구성. `ai-model`(Python FastAPI, 선택적 강화 스코어러) 서비스도 함께 추가 — 꺼져 있어도 `ai-service`가 자동으로 휴리스틱 스코어러로 폴백하므로 필수는 아님
 3. [x] `.github/workflows/ci.yml` 작성 — 빌드 + 테스트 자동화. **주의**: Repo-Strategy 문서 초안은 이 파일을 `code/backend/.github/`에 두는 것처럼 그려져 있었으나, GitHub Actions는 **저장소 루트**의 `.github/workflows/`만 인식하므로 실제로는 저장소 루트(`EnrollGate/.github/workflows/ci.yml`)에 위치시켰다 — Repo-Strategy 문서도 이에 맞춰 수정
-4. [ ] GitHub Actions에서 실제 이미지 빌드까지 확인 — 워크플로우 자체(`build-and-test` job + `docker-build` job)는 작성 완료했으나, **push는 사용자 확인 후 진행**하기로 한 기존 방침(Repo-Strategy 문서 참고)에 따라 아직 실제 Actions 실행으로 검증하지 않음. 로컬에는 Docker가 없어(WSL2/Docker 미설치 결정 유지) `docker build` 자체도 로컬 검증 불가 — CI 러너에서 처음 검증됨
+4. [x] GitHub Actions에서 실제 이미지 빌드까지 확인 — push해서 실제로 돌려봄. **1차 시도는 `build-and-test`에서 실패**했고(원인/수정은 아래 "실제로 겪은 문제와 해결" 참고), 수정 후 재push한 2차 실행에서 `build-and-test`/`docker-build` 두 잡 모두 성공 확인
 5. [x] ~~AWS 배포(ECS/EKS)~~ — **범위 밖으로 확정**. 졸업 전 학습/포트폴리오 목적 프로젝트라 실제 배포 계획이 없음. Dockerfile/CI까지가 5단계의 실질적 완료 기준
 
 ### 검증
 - 로컬 `./gradlew test`로 코드 변경 없음(Dockerfile/compose/CI yaml만 추가)을 확인 — 137개 테스트 전부 통과 유지
 - Docker/`docker build` 자체를 로컬에서 실행할 수 없어(Docker 미설치), Dockerfile 문법과 `docker-compose.yml` 구조는 직접 검토로 확인
-- **실제 GitHub Actions에서 실행해 CI를 검증함** — push 후 `build-and-test` 잡이 실패했고, 로그를 받아 원인을 찾아 수정한 뒤 로컬에서 재현·검증까지 완료 (아래 "실제로 겪은 문제와 해결" 참고)
+- **실제 GitHub Actions에서 실행해 CI를 검증함** — 1차 push 후 `build-and-test` 잡이 실패했고, 로그를 받아 원인을 찾아 수정한 뒤 로컬에서 재현·검증 완료. 2차 push 후 `build-and-test`(테스트 137개 통과) + `docker-build`(app/ai-model 이미지 빌드 성공) 두 잡 모두 성공(success)으로 완료됨을 실제 Actions 실행 결과로 확인
 
 ### 실제로 겪은 문제와 해결
 - **CI 전용 테스트 실패 (`EnrollEventPublisherTest`)**: 로컬에서는 항상 Redis가 떠 있어 몰랐지만, Redis가 없는 GitHub Actions 러너에서 처음 돌려보니 `EnrollEventPublisherTest`의 4개 테스트가 전부 `RedisConnectionFailureException`으로 실패했다. 원인은 `assumeTrue(reachable, ...)`가 `@BeforeEach`에서 Redis 연결 실패 시 테스트를 스킵시키긴 하지만, **JUnit5는 `@BeforeEach`의 assumption이 실패해도 `@AfterEach`(`tearDown()`)는 여전히 실행한다**는 점을 놓쳤다는 것 — `tearDown()`이 `redisTemplate != null`만 확인하고 무조건 `redisTemplate.delete(...)`를 호출하다 보니, "스킵됐어야 할 테스트"가 tearDown의 Redis 호출 때문에 실패로 둔갑했다. `redisReachable` 플래그를 필드로 저장해 `tearDown()`도 같은 조건으로 가드하도록 수정 — 로컬 Redis를 일부러 내려서 재현 후 수정, 재기동해서 재검증 완료. 같은 패턴을 쓰는 `RedisSeatGateIntegrationTest`는 `tearDown()`이 `courseId != null`(assumeTrue 통과 후에만 할당됨)로 우연히 이미 안전했다
